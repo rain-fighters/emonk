@@ -1,13 +1,14 @@
-// A Discord and YouTube bot written in go
+// A Discord and YouTube bot written in Go
 package main
 
 import (
-  "flag"
+	"flag"
 	"fmt"
+	"github.com/bwmarrin/discordgo"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
-  "github.com/bwmarrin/discordgo"
 )
 
 // Version is a constant that stores the Disgord version information.
@@ -30,40 +31,47 @@ func init() {
 }
 
 func main() {
-  // Declare any variables needed later.
+	// Declare any variables needed later.
 	var err error
-  
-  // Print out our bot signature
+
+	// Print out our bot signature
 	fmt.Printf("emonk - %s\n", Version)
 
-  // Parse command line arguments
+	// Parse command line arguments
 	flag.Parse()
 
-  // Verify a Token was provided
+	// Verify a Token was provided
 	if Session.Token == "" {
 		fmt.Printf("You must provide a Discord authentication token.\n")
 		return
 	}
-  
-  // Verify the Token is valid and grab user information
+
+	// Verify the Token is valid and grab user information
 	Session.State.User, err = Session.User("@me")
 	if err != nil {
-		fmt.Printf("error fetching user information, %s\n", err)
-    return
+		fmt.Printf("error fetching user information: %s\n", err)
+		return
 	}
-  fmt.Printf("User: %s\n", Session.State.User)
+	fmt.Printf("User: %s\n", Session.State.User)
 
-  // Register the messageCreate func as a callback for MessageCreate events.
+	// Register the messageCreate func as a callback for MessageCreate events.
 	Session.AddHandler(messageCreate)
-  
-  // Open a websocket connection to Discord and begin listening.
+
+	// Open a websocket connection to Discord and begin listening.
 	err = Session.Open()
 	if err != nil {
 		fmt.Println("error opening connection,", err)
 		return
 	}
-  
-  // Wait for a CTRL-C
+
+	// Set User Status and Game
+	err = Session.UpdateStatus(0, "Chasing Nephthys")
+	if err != nil {
+		fmt.Printf("error setting current game: %s\n", err)
+		return
+	}
+
+	// Wait for a CTRL-C
 	fmt.Printf("Now running. Press CTRL-C to exit ...\n")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
@@ -78,19 +86,28 @@ func main() {
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	var err error
 
 	// Ignore all messages created by the bot itself
 	// This isn't required in this specific example but it's a good practice.
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	// If the message is "ping" reply with "Pong!"
-	if m.Content == "ping" {
-		s.ChannelMessageSend(m.ChannelID, "Pong!")
-	}
 
-	// If the message is "pong" reply with "Ping!"
-	if m.Content == "pong" {
-		s.ChannelMessageSend(m.ChannelID, "Ping!")
+	var msg string = strings.TrimSpace(m.Content)
+	fmt.Printf("received: %s\n", msg)
+	switch msg {
+	case "ping", "pong":
+		if msg == "ping" {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("<@%s> Pong! :ping_pong:", m.Author.ID))
+		} else {
+			s.ChannelMessageSend(m.ChannelID, ":ping_pong: Ping!")
+		}
+		err = s.MessageReactionAdd(m.ChannelID, m.ID, "🏓") // Should compute/lookup the unicode
+		if err != nil {
+			fmt.Println("error adding reaction,", err)
+		}
+	case "hi", "hiho", "hello":
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("<@%s> :wave: Hello!", m.Author.ID))
 	}
 }

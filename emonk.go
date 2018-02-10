@@ -11,103 +11,92 @@ import (
 	"syscall"
 )
 
-// Version is a constant that stores the Disgord version information.
-const Version = "v0.0.0-alpha"
+// Version of the bot
+const Version = "v0.0.1-alpha"
 
-// Session is declared in the global space so it can be easily used
-// throughout this program.
-// In this use case, there is no error that would be returned.
-var Session, _ = discordgo.New()
+// Authentication Token to be read from environment or command line
+var Token = ""
 
-// Read in all configuration options from both environment variables and
-// command line arguments.
 func init() {
-
-	// Discord Authentication Token
-	Session.Token = os.Getenv("BOT_TOKEN")
-	if Session.Token == "" {
-		flag.StringVar(&Session.Token, "t", "", "Discord Authentication Token")
-	}
+	Token = os.Getenv("BOT_TOKEN")
+	flag.StringVar(&Token, "t", "", "Discord Bot Authentication Token")
 }
 
 func main() {
-	// Declare any variables needed later.
-	var err error
-
-	// Print out our bot signature
-	fmt.Printf("emonk - %s\n", Version)
-
-	// Parse command line arguments
+	// Make sure we have an Authentication Token
 	flag.Parse()
-
-	// Verify a Token was provided
-	if Session.Token == "" {
-		fmt.Printf("You must provide a Discord authentication token.\n")
+	if Token == "" {
+		fmt.Printf("missing authentication token!\n")
 		return
 	}
 
-	// Verify the Token is valid and grab user information
-	Session.State.User, err = Session.User("@me")
+	// Use Token to authenticate and verify successful authentication
+	var session, err = discordgo.New(Token)
+	if err != nil {
+		fmt.Printf("invalid authentication token: %s\n", err)
+		return
+	}
+	session.State.User, err = session.User("@me")
 	if err != nil {
 		fmt.Printf("error fetching user information: %s\n", err)
 		return
 	}
-	fmt.Printf("User: %s\n", Session.State.User)
+	fmt.Printf("emonk-%s authenticated as %s\n", Version, session.State.User)
 
-	// Register the messageCreate func as a callback for MessageCreate events.
-	Session.AddHandler(messageCreate)
+	// Register a callback for MessageCreate events
+	session.AddHandler(messageCreate)
 
-	// Open a websocket connection to Discord and begin listening.
-	err = Session.Open()
+	// Open a websocket connection
+	err = session.Open()
 	if err != nil {
-		fmt.Println("error opening connection,", err)
+		fmt.Println("error opening connection: %s", err)
 		return
 	}
 
-	// Set User Status and Game
-	err = Session.UpdateStatus(0, "Chasing Nephthys")
+	// UpdateStatus() requires a websocket, i. e. needs to be called after Open()
+	err = session.UpdateStatus(0, "Chasing Nephthys")
 	if err != nil {
 		fmt.Printf("error setting current game: %s\n", err)
 		return
 	}
 
-	// Wait for a CTRL-C
-	fmt.Printf("Now running. Press CTRL-C to exit ...\n")
+	// Setup a channel to wait for a signal to terminate me
+	fmt.Printf("Waiting for signal, e. g. CTRL-C, to terminate me ...\n")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-	<-sc
+	<-sc // now waiting
 
-	// Clean up
-	Session.Close()
-
-	// Exit Normally.
+	session.Close()
 }
 
-// This function will be called (due to AddHandler above) every time a new
-// message is created on any channel that the autenticated bot has access to.
+// Callback for MessageCreate events used to reply/react to certain messages
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	var err error
-
-	// Ignore all messages created by the bot itself
-	// This isn't required in this specific example but it's a good practice.
+	// never reply/react to myself
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
 
 	var msg string = strings.TrimSpace(m.Content)
-	fmt.Printf("received: %s\n", msg)
+	var reply string = ""
+	var reaction string = ""
+
 	switch msg {
-	case "ping", "pong":
-		if msg == "ping" {
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("<@%s> Pong! :ping_pong:", m.Author.ID))
-		} else {
-			s.ChannelMessageSend(m.ChannelID, ":ping_pong: Ping!")
-		}
-		err = s.MessageReactionAdd(m.ChannelID, m.ID, "🏓") // Should compute/lookup the unicode
-		if err != nil {
-			fmt.Println("error adding reaction,", err)
-		}
+	case "ping":
+		reply = fmt.Sprintf("<@%s> Pong! :ping_pong:", m.Author.ID)
+		reaction = "🔁" // unicode for :repeat: (arrows_clockwise)
+	case "pong":
+		reply = fmt.Sprintf("<@%s> Ping! :ping_pong:", m.Author.ID)
+		reaction = "🔄" // unicode for :arrows_counterclockwise:
 	case "hi", "hiho", "hello":
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("<@%s> :wave: Hello!", m.Author.ID))
+		reply = fmt.Sprintf("<@%s> Hello! :wave:", m.Author.ID)
+		reaction = "👋" // unicode for :wave:
+	case "no comment":
+		reply = "`Real programmers don't write comments.\nIf it was hard to write, it should be hard to read.`"
+	}
+	if len(reply) > 0 {
+		s.ChannelMessageSend(m.ChannelID, reply)
+	}
+	if len(reaction) > 0 {
+		s.MessageReactionAdd(m.ChannelID, m.ID, reaction)
 	}
 }

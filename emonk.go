@@ -1,4 +1,4 @@
-// A Discord and YouTube bot written in Go
+// A Discord bot written in Go
 package main
 
 import (

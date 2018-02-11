@@ -54,7 +54,7 @@ func main() {
 	}
 
 	// UpdateStatus() requires a websocket, i. e. needs to be called after Open()
-	err = session.UpdateStatus(0, "Chasing Nephthys")
+	err = session.UpdateStatus(0, "@emonk ...")
 	if err != nil {
 		fmt.Printf("error setting current game: %s\n", err)
 		return
@@ -76,9 +76,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	var msg string = strings.TrimSpace(m.Content)
+	var err error
+	var msg string = strings.ToLower(strings.TrimSpace(m.Content))
 	var reply string = ""
 	var reaction string = ""
+	var channel *discordgo.Channel = nil
+	var guild *discordgo.Guild = nil
 
 	switch msg {
 	case "ping":
@@ -92,6 +95,22 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		reaction = "👋" // unicode for :wave:
 	case "no comment":
 		reply = "`Real programmers don't write comments.\nIf it was hard to write, it should be hard to read.`"
+	case "connect":
+		channel, err = s.State.Channel(m.ChannelID)
+		if err != nil {
+			channel, err = s.Channel(m.ChannelID)
+			if err != nil {
+				break
+			}
+		}
+		guild, err = s.State.Guild(channel.GuildID)
+		if err != nil {
+			guild, err = s.Guild(channel.GuildID)
+			if err != nil {
+				break
+			}
+		}
+		reply = fmt.Sprintf("`voice connection request from channel '%s' on server/guild '%s'`", channel.Name, guild.Name)
 	}
 	if len(reply) > 0 {
 		s.ChannelMessageSend(m.ChannelID, reply)

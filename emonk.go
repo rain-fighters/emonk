@@ -12,7 +12,7 @@ import (
 )
 
 // Version of the bot
-const Version = "v0.0.1-alpha"
+const Version = "v0.0.1"
 
 // Authentication Token to be read from environment or command line
 var Token = ""

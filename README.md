@@ -1,6 +1,5 @@
-# emonk
-A *Discord* bot written in *Go*
-![Logo](doc/emonk.png)
+# emonk <img src="./doc/emonk.png" align="right" height="128" width="128" />
+A *Discord* bot written in *Go (Golang)*
 
 ## Main (planned) features
 * open source

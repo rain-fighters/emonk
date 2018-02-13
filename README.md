@@ -1,4 +1,4 @@
-# emonk <img src="./doc/emonk.png" align="right" height="128" width="128" />
+# emonk <img src="./doc/emonk.png" align="right" height="64" width="64" />
 A *Discord* bot written in *Go (Golang)*
 
 ## Main (planned) features

@@ -43,20 +43,16 @@ func main() {
 	}
 	fmt.Printf("emonk-%s authenticated as %s\n", Version, session.State.User)
 
-	// Register a callback for MessageCreate events
+	// Register a handler for Ready events
+	session.AddHandler(ready)
+
+	// Register a handler for MessageCreate events
 	session.AddHandler(messageCreate)
 
 	// Open a websocket connection
 	err = session.Open()
 	if err != nil {
 		fmt.Println("error opening connection: %s", err)
-		return
-	}
-
-	// UpdateStatus() requires a websocket, i. e. needs to be called after Open()
-	err = session.UpdateStatus(0, "@emonk ...")
-	if err != nil {
-		fmt.Printf("error setting current game: %s\n", err)
 		return
 	}
 
@@ -69,7 +65,17 @@ func main() {
 	session.Close()
 }
 
-// Callback for MessageCreate events used to reply/react to certain messages
+// Handler for Ready events used to uopdate status/current game
+func ready(s *discordgo.Session, event *discordgo.Ready) {
+	var err = s.UpdateStatus(0, "@emonk ...")
+	if err != nil {
+		fmt.Printf("error setting current game: %s\n", err)
+		return
+	}
+	fmt.Printf("status updated\n")
+}
+
+// Handler for MessageCreate events used to reply/react to certain messages
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// never reply/react to myself
 	if m.Author.ID == s.State.User.ID {
